@@ -5,6 +5,7 @@ var ReVenge = /** @class */ (function () {
             infAmmo: true,
             infJump: true,
             spotOn: true,
+            esp: true
             // fly: false
         };
         console.log('ReVenge Startup');
@@ -57,6 +58,34 @@ var ReVenge = /** @class */ (function () {
             _update.apply(this, [t]);
             _this.postTick();
         };
+        var Label = window['Label'];
+        Label.prototype.update = function (t) {
+            var pc = window['pc'];
+            if (!pc.isSpectator) {
+                if (this.player.isDeath) {
+                    this.labelEntity.enabled = false;
+                    return false;
+                }
+                if (Date.now() - this.player.lastDamage > 1800 && !_this.settings.esp) {
+                    this.labelEntity.enabled = false;
+                    return false;
+                }
+            }
+            var e = new pc.Vec3, i = this.currentCamera, a = this.app.graphicsDevice.maxPixelRatio, s = this.screenEntity.screen.scale, n = this.app.graphicsDevice;
+            if (e.x > 0 && e.x < this.app.graphicsDevice.width && e.y > 0 && e.y < this.app.graphicsDevice.height && e.z > 0) {
+                i.worldToScreen(this.headPoint.getPosition(), e),
+                    e.x *= a,
+                    e.y *= a,
+                    this.labelEntity.setLocalPosition(e.x / s, (n.height - e.y) / s, 0),
+                    this.labelEntity.enabled = !0;
+            }
+            else {
+                i.worldToScreen(this.headPoint.getPosition(), e),
+                    e.x *= a,
+                    e.y *= a,
+                    this.labelEntity.enabled = !1;
+            }
+        };
     };
     ReVenge.prototype.tick = function () {
         if (!this.settings.aimBot)
@@ -91,7 +120,7 @@ var ReVenge = /** @class */ (function () {
             this.movement.lookX = this.radToDeg(xRadians) + Math.random() / 10 - Math.random() / 10;
             var closestPosition = closest.position;
             closestPosition.y += closest.collision.height;
-            this.movement.lookY = -1 * this.radToDeg(this.getHorizontalDirection(closestPosition, selfPosition));
+            this.movement.lookY = -1 * this.radToDeg(this.getVerticalDistance(closestPosition, selfPosition));
             this.movement.leftMouse = true;
             if (this.settings.spotOn) {
                 this.movement.currentWeapon.recoil = this.movement.currentWeapon.spread = 0;
@@ -105,7 +134,7 @@ var ReVenge = /** @class */ (function () {
     ReVenge.prototype.isValid = function (enemy) {
         var pc = window['pc'];
         // Alive check
-        if (enemy.health <= 0 || !enemy.collision.enabled || enemy.isDeath)
+        if (enemy.script.enemy.health <= 0 || !enemy.collision.enabled || enemy.script.enemy.isDeath)
             return false;
         // Team check
         if (pc.currentMode == "TDM" || pc.currentMode == "PLAYLOAD") {
@@ -126,7 +155,7 @@ var ReVenge = /** @class */ (function () {
             this.movement.isJumping = false;
         }
     };
-    ReVenge.prototype.getHorizontalDirection = function (target, self) {
+    ReVenge.prototype.getVerticalDistance = function (target, self) {
         var yDiff = Math.abs(target.y - self.y);
         var xDiff = Math.sqrt(this.getDistanceSq(target, self));
         return Math.asin(yDiff / xDiff) * (target.y > self.y ? -1 : 1);

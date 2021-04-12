@@ -29,6 +29,7 @@ interface Enemy extends Entity {
     isActivated: boolean;
     health: number; //100
     isDeath: boolean;
+    script;
 }
 
 interface Weapon {
@@ -61,6 +62,7 @@ class ReVenge {
         infAmmo: true,
         infJump: true,
         spotOn: true,
+        esp: true
         // fly: false
     }
     playerData: object
@@ -98,7 +100,6 @@ class ReVenge {
             console.log('Hooked Network');
             _initialize.call(this);
         }
-
         const VengeGuard = window['VengeGuard']
         VengeGuard.prototype.onCheck = function () {
             this.app.fire('Network:Guard', 1); // Send the all clear to the AC
@@ -115,6 +116,39 @@ class ReVenge {
             _this.tick();
             _update.apply(this, [t])
             _this.postTick();
+        }
+
+        const Label = window['Label'];
+
+        Label.prototype.update = function (t) {
+            const pc = window['pc'];
+            if (!pc.isSpectator) {
+                if (this.player.isDeath) {
+                    this.labelEntity.enabled = false
+                    return false;
+                }
+                if (Date.now() - this.player.lastDamage > 1800 && !_this.settings.esp) {
+                    this.labelEntity.enabled = false
+                    return false
+                }
+            }
+            let e = new pc.Vec3
+                , i = this.currentCamera
+                , a = this.app.graphicsDevice.maxPixelRatio
+                , s = this.screenEntity.screen.scale
+                , n = this.app.graphicsDevice;
+            if (e.x > 0 && e.x < this.app.graphicsDevice.width && e.y > 0 && e.y < this.app.graphicsDevice.height && e.z > 0) {
+                i.worldToScreen(this.headPoint.getPosition(), e),
+                    e.x *= a,
+                    e.y *= a,
+                    this.labelEntity.setLocalPosition(e.x / s, (n.height - e.y) / s, 0),
+                    this.labelEntity.enabled = !0
+            } else {
+                i.worldToScreen(this.headPoint.getPosition(), e),
+                    e.x *= a,
+                    e.y *= a,
+                    this.labelEntity.enabled = !1
+            }
         }
     }
 
@@ -161,7 +195,7 @@ class ReVenge {
             this.movement.lookX = this.radToDeg(xRadians) + Math.random() / 10 - Math.random() / 10;
             const closestPosition = closest.position;
             closestPosition.y += closest.collision.height;
-            this.movement.lookY = -1 * this.radToDeg(this.getHorizontalDirection(closestPosition, selfPosition))
+            this.movement.lookY = -1 * this.radToDeg(this.getVerticalDistance(closestPosition, selfPosition))
             this.movement.leftMouse = true;
             if (this.settings.spotOn) {
                 this.movement.currentWeapon.recoil = this.movement.currentWeapon.spread = 0;
@@ -175,7 +209,7 @@ class ReVenge {
     isValid(enemy: Enemy) {
         const pc = window['pc'];
         // Alive check
-        if (enemy.health <= 0 || !enemy.collision.enabled || enemy.isDeath) return false;
+        if (enemy.script.enemy.health <= 0 || !enemy.collision.enabled || enemy.script.enemy.isDeath) return false;
         // Team check
         if (pc.currentMode == "TDM" || pc.currentMode == "PLAYLOAD") {
             if (pc.currentTeam == enemy.team) {
@@ -197,7 +231,7 @@ class ReVenge {
         }
     }
 
-    getHorizontalDirection(target: Position, self: Position): number {
+    getVerticalDistance(target: Position, self: Position): number {
         const yDiff = Math.abs(target.y - self.y)
         const xDiff = Math.sqrt(this.getDistanceSq(target, self))
         return Math.asin(yDiff / xDiff) * (target.y > self.y ? -1 : 1)
